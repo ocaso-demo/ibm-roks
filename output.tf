@@ -1,21 +1,31 @@
 output "cluster_id" {
   description = "Cluster ID"
-  value       = module.roks_cluster.cluster_id
+  value       = resource.ibm_container_vpc_cluster.cluster.id
 }
 
 output "cluster_name" {
   description = "Cluster Name"
-  value       = module.roks_cluster.cluster_name
+  value       = resource.ibm_container_vpc_cluster.cluster.name
 }
 
 output "cluster_url" {
   description = "Cluster URL"
-  value       = module.roks_cluster.cluster_url
+  value       = "https://cloud.ibm.com/kubernetes/clusters/${resource.ibm_container_vpc_cluster.cluster.id}/overview?platformType=openshift"
+}
+
+output "openshift_web_console" {
+  description = "Cluster URL"
+  value       = resource.ibm_container_vpc_cluster.cluster.public_service_endpoint_url
 }
 
 output "ocp_version" {
   description = "OCP Version"
-  value       = module.roks_cluster.ocp_version
+  value       = resource.ibm_container_vpc_cluster.cluster.kube_version
+}
+
+output "compute_nodes_flavor" {
+  description = "Worker Node Flavor"
+  value       = resource.ibm_container_vpc_cluster.cluster.flavor
 }
 
 output "argo_url" {
@@ -33,36 +43,7 @@ output "argo_password" {
   value       = base64decode(data.external.argo_info.result.password)
 }
 
-# Special vars
-output "desktop" {
-  description = "ROKS Cluster"
-  value       = module.roks_cluster.cluster_url
-}
-
-output "environmentid" {
-  value = module.roks_cluster.cluster_id
-}
-
-output "envName" {
-  value = module.roks_cluster.cluster_name
-}
-
-output "sharingportalid" {
-  description = "Argo CD Username"
-  value       = "admin"
-}
-
-output "sharingPortalPwd" {
-  description = "Argo CD Password"
-  value       = base64decode(data.external.argo_info.result.password)
-}
-
-output "next_steps" {
-  description = "Next Steps"
-  value       = "https://github.com/${var.git_org}/multi-tenancy-gitops#select-resources-to-deploy"
-}
-
-output "compute_nodes_flavor" {
-  description = "Worker Node Flavor"
-  value       = var.compute_nodes_flavor
-}
+# output "next_steps" {
+#   description = "Next Steps"
+#   value       = "https://github.com/${var.git_org}/multi-tenancy-gitops#select-resources-to-deploy"
+# }
