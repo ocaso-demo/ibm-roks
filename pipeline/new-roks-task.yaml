@@ -77,6 +77,7 @@ spec:
         sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
         terraform init
         terraform apply -auto-approve
+        terraform output cluster_name > cluster_name.tmp
     - name: import-cluster
       image: $(params.oc-cli-image)
       workingDir: $(params.source-dir)
@@ -87,7 +88,7 @@ spec:
         echo "*************************"
         if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
         # Replace ROKS cluster name
-        export CLUSTER_NAME=`terraform output cluster_name`
+        export CLUSTER_NAME=`cat cluster_name.tmp`
         ### Install IBM Cloud CLI ##############################
         curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
         ########################################################
@@ -117,7 +118,7 @@ spec:
         echo "** Step Install-ArgoCD **"
         echo "*************************"
         if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-        export CLUSTER_NAME=`terraform output cluster_name`
+        export CLUSTER_NAME=`cat cluster_name.tmp`
         ### Install IBM Cloud CLI ##############################
         curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
         ########################################################
