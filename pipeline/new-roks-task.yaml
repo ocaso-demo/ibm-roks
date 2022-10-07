@@ -77,31 +77,6 @@ spec:
     #     sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
     #     terraform init
     #     terraform apply -auto-approve
-    - name: install-argocd
-      image: $(params.oc-cli-image)
-      workingDir: $(params.source-dir)
-      script: |
-        set +x
-        echo "*************************"
-        echo "** Step import-cluster **"
-        echo "*************************"
-        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-        # Replace ROKS cluster name
-        #export CLUSTER_NAME=`terraform output cluster_name`
-        export CLUSTER_NAME="ocaso-demo-gub436bh"
-        echo "The new ROKS Cluster is called: ${CLUSTER_NAME}"
-        ### Install IBM Cloud CLI ##############################
-        curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
-        ########################################################
-        ### Get Kubeconfig ##################
-        ./scripts/get-kubeconfig.sh || exit 1
-        ######################################
-        ### Bootstrap ArgoCD ###########
-        #./scripts/bootstrap.sh || exit 1
-        ################################
-        ### Get ArgoCD Info ################
-        #./scripts/get-argo-info.sh || exit 1
-        ####################################
     - name: import-cluster
       image: $(params.oc-cli-image)
       workingDir: $(params.source-dir)
@@ -111,23 +86,42 @@ spec:
         echo "** Step import-cluster **"
         echo "*************************"
         if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-        cat scripts/kubeconfig.yaml
         # Replace ROKS cluster name
-        export CLUSTER_NAME=`terraform output cluster_name`
+        # export CLUSTER_NAME=`terraform output cluster_name`
+        export CLUSTER_NAME="ocaso-demo-gub436bh"
+        ### Install IBM Cloud CLI ##############################
+        curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+        ########################################################
+        ibmcloud login --apikey ${IBM_APIKEY} -r eu-de -q || exit 1
+        ibmcloud plugin install container-service -f
+        ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} --output yaml > kubeconfig.yaml || exit 1
+        ### Set up config files
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" roles/role.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" roles/rolebinding.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/klusterlet.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/secret.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/project.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/managed-cluster.yaml
         # Indent Kubeconfig
-        sed -i -r 's/^/    /g' scripts/kubeconfig.yaml
-        cat scripts/kubeconfig.yaml >> import/secret.yaml
-        # Import the cluster
-        cat import/project.yaml
-        cat import/secret.yaml
-        cat import/klusterlet.yaml
-        cat import/managed-cluster.yaml
-        # oc apply -f import/project.yaml
-        # sleep 10
-        # oc apply -f import/secret.yaml
-        # oc apply -f import/klusterlet.yaml
-        # oc apply -f import/managed-cluster.yaml
+        sed -i -r 's/^/    /g' kubeconfig.yaml
+        cat kubeconfig.yaml >> import/secret.yaml
+        ### Import the cluster
+        oc apply -f roles/role.yaml
+        oc apply -f roles/rolebinding.yaml
+        oc apply -f import/project.yaml
+        sleep 10
+        oc apply -f import/secret.yaml
+        oc apply -f import/klusterlet.yaml
+        oc apply -f import/managed-cluster.yaml
+        echo "*************************"
+        echo "** Step Install-ArgoCD **"
+        echo "*************************"
+        ### Configure Kubeconfig to point to target cluster
+        ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} -q || exit 1
+        oc new-project testing
+        ### Bootstrap ArgoCD ###########
+        #./scripts/bootstrap.sh || exit 1
+        ################################
+        ### Get ArgoCD Info #################
+        #./scripts/get-argo-info.sh || exit 1
+        #####################################
