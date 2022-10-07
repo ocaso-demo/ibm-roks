@@ -97,32 +97,37 @@ spec:
         ./scripts/get-kubeconfig.sh || exit 1
         ######################################
         ### Bootstrap ArgoCD ###########
-        ./scripts/bootstrap.sh || exit 1
+        #./scripts/bootstrap.sh || exit 1
         ################################
         ### Get ArgoCD Info ################
-        ./scripts/get-argo-info.sh || exit 1
+        #./scripts/get-argo-info.sh || exit 1
         ####################################
-    # - name: import-cluster
-    #   image: $(params.oc-cli-image)
-    #   workingDir: $(params.source-dir)
-    #   script: |
-    #     set +x
-    #     echo "*************************"
-    #     echo "** Step import-cluster **"
-    #     echo "*************************"
-    #     if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-    #     # Replace ROKS cluster name
-    #     export CLUSTER_NAME=`terraform output cluster_name`
-    #     sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/klusterlet.yaml
-    #     sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/secret.yaml
-    #     sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/project.yaml
-    #     sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/managed-cluster.yaml
-    #     # Indent Kubeconfig
-    #     sed -i -r 's/^/    /g' scripts/kubeconfig.yaml
-    #     cat scripts/kubeconfig.yaml >> import/secret.yaml
-    #     # Import the cluster
-    #     oc apply -f import/project.yaml
-    #     sleep 10
-    #     oc apply -f import/secret.yaml
-    #     oc apply -f import/klusterlet.yaml
-    #     oc apply -f import/managed-cluster.yaml
+    - name: import-cluster
+      image: $(params.oc-cli-image)
+      workingDir: $(params.source-dir)
+      script: |
+        set +x
+        echo "*************************"
+        echo "** Step import-cluster **"
+        echo "*************************"
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
+        cat scripts/kubeconfig.yaml
+        # Replace ROKS cluster name
+        export CLUSTER_NAME=`terraform output cluster_name`
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/klusterlet.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/secret.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/project.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/managed-cluster.yaml
+        # Indent Kubeconfig
+        sed -i -r 's/^/    /g' scripts/kubeconfig.yaml
+        cat scripts/kubeconfig.yaml >> import/secret.yaml
+        # Import the cluster
+        cat import/project.yaml
+        cat import/secret.yaml
+        cat import/klusterlet.yaml
+        cat import/managed-cluster.yaml
+        # oc apply -f import/project.yaml
+        # sleep 10
+        # oc apply -f import/secret.yaml
+        # oc apply -f import/klusterlet.yaml
+        # oc apply -f import/managed-cluster.yaml

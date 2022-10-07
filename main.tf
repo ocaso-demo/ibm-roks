@@ -83,17 +83,6 @@ data "ibm_resource_instance" "cos_instance" {
 #   }
 # }
 
-
-# resource "null_resource" "test" {
-
-#   provisioner "local-exec" {
-#     command = "scripts/test.sh"
-#     environment = {
-#       HOME = "${abspath(path.module)}/home"
-#     }
-#   }
-# }
-
 # # Download kubeconfig for the cluster into home dir
 # resource "null_resource" "kubeconfig" {
 
