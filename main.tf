@@ -107,9 +107,9 @@ resource "null_resource" "kubeconfig" {
     }
   }
 
-  depends_on = [
-    ibm_container_vpc_cluster.cluster
-  ]
+  # depends_on = [
+  #   ibm_container_vpc_cluster.cluster
+  # ]
 }
 
 # Run boostrap.sh
