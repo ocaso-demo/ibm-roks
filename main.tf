@@ -83,6 +83,18 @@ resource "ibm_container_vpc_cluster" "cluster" {
   }
 }
 
+
+# Run boostrap.sh
+resource "null_resource" "test" {
+
+  provisioner "local-exec" {
+    command = "echo XXXXXXXXXXXXXX; echo $PWD; ls -all"
+    environment = {
+      HOME = "${abspath(path.module)}/home"
+    }
+  }
+}
+
 # Download kubeconfig for the cluster into home dir
 resource "null_resource" "kubeconfig" {
 
