@@ -1,26 +1,3 @@
-apiVersion: cluster.open-cluster-management.io/v1
-kind: ManagedCluster
-metadata:
-  name: CLUSTER_NAME_PLACEHOLDER
-  labels:
-    name: CLUSTER_NAME_PLACEHOLDER
-    cloud: auto-detect
-    vendor: auto-detect
-  annotations: {}
-spec:
-  hubAcceptsClient: true
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: auto-import-secret
-  namespace: CLUSTER_NAME_PLACEHOLDER
-stringData:
-  autoImportRetry: "2"
-  token: 'API_KEY_PLACEHOLDER'
-  server: CLUSTER_URL_PLACEHOLDER
-type: Opaque
----
 apiVersion: agent.open-cluster-management.io/v1
 kind: KlusterletAddonConfig
 metadata:

@@ -26,7 +26,7 @@ locals {
   KUBEVERSION = "4.8.49_openshift"
   NODEFLAVOR = "bx2.4x16"
   NUMNODES = 1
-  API_KEY = "${API_KEY_PLACEHOLDER}"
+  API_KEY = "API_KEY_PLACEHOLDER"
 }
 
 data "ibm_resource_group" "group" {
@@ -73,14 +73,14 @@ resource "ibm_container_vpc_cluster" "cluster" {
     name                          = "eu-de-1"
     subnet_id                     = data.ibm_is_subnet.subnet1.id
   }
-  zones {
-    name                          = "eu-de-2"
-    subnet_id                     = data.ibm_is_subnet.subnet2.id
-  }
-  zones {
-    name                          = "eu-de-3"
-    subnet_id                     = data.ibm_is_subnet.subnet3.id
-  }
+  # zones {
+  #   name                          = "eu-de-2"
+  #   subnet_id                     = data.ibm_is_subnet.subnet2.id
+  # }
+  # zones {
+  #   name                          = "eu-de-3"
+  #   subnet_id                     = data.ibm_is_subnet.subnet3.id
+  # }
 }
 
 # Download kubeconfig for the cluster into home dir

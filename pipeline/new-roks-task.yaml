@@ -1,0 +1,104 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: new-roks-cluster
+  annotations:
+    description: Creates a new ROKS Cluster with the GitOps operator installed on it and imports the cluster into RHACM
+  labels:
+    version: 0.0.1
+spec:
+  description: >-
+    This task will create a new ROKS Cluster with the GitOps operator installed on it and imports the cluster into RHACM
+  params:
+    - name: ibm-apikey
+      type: string
+      description: Your IBM API Key
+    - name: git-new-roks-url
+      type: string
+      description: GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+    - name: git-new-roks-branch
+      type: string
+      default: main
+      description: Github branch for the pipeline scripts
+    - name: source-dir
+      type: string
+      default: /source
+      description: Path where an empty directory will be mounted to which will serve as the source location for all the task steps.
+    - name: terraform-image
+      type: string
+      default: hashicorp/terraform:latest
+      description: Terraform Docker image needed for executing this task.
+    - name: oc-cli-image
+      type: string
+      default: quay.io/openshift/origin-cli:latest
+      description: OpenShift CLI Docker image needed for executing oc commands.
+    - name: git-image
+      type: string
+      default: quay.io/ibmgaragecloud/alpine-git
+      description: Git Docker image needed for executing git commands.
+    - name: debug
+      type: string
+      default: "True"
+      description: Debug flag
+  volumes:
+    - name: source
+      emptyDir: {}
+  stepTemplate:
+    volumeMounts:
+      - name: source
+        mountPath: $(params.source-dir)
+    env:
+      - name: CONFIG_FILES_DIR
+        value: $(params.source-dir)/config
+      - name: IBM_APIKEY
+        value: $(params.ibm-apikey)
+  steps:
+    - name: git-clone
+      image: $(params.git-image)
+      script: |
+        set +x
+        echo "********************"
+        echo "** Step git-clone **"
+        echo "********************"
+        echo 
+        git clone $(params.git-new-roks-url) $(params.source-dir)
+        cd $(params.source-dir)
+        git checkout $(params.git-new-roks-branch)
+    - name: create-roks-cluster
+      image: $(params.terraform-image)
+      workingDir: $(params.source-dir)
+      script: |
+        set +x
+        echo "******************************"
+        echo "** Step create-roks-cluster **"
+        echo "******************************"
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
+        # Replace the value of the IBM API Key
+        sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
+        terraform init
+        terraform apply -auto-approve
+    - name: import-cluster
+      image: $(params.oc-cli-image)
+      workingDir: $(params.source-dir)
+      script: |
+        set +x
+        echo "*************************"
+        echo "** Step import-cluster **"
+        echo "*************************"
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
+        # Replace ROKS cluster name
+        CLUSTER_NAME=`terraform output cluster_name`
+        echo "The new ROKS Cluster is called: ${CLUSTER_NAME}"
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/klusterlet.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/secret.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/project.yaml
+        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/managed-cluster.yaml
+        # Indent Kubeconfig
+        sed -i -r 's/^/    /g' scripts/kubeconfig.yaml
+        cat scripts/kubeconfig.yaml >> import/secret.yaml
+        # Import the cluster
+        oc apply -f import/project.yaml
+        sleep 10
+        oc apply -f import/secret.yaml
+        oc apply -f import/klusterlet.yaml
+        oc apply -f import/managed-cluster.yaml

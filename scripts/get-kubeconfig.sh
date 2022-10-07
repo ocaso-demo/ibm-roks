@@ -8,3 +8,5 @@ ibmcloud login --apikey ${API_KEY} -r eu-de -q || exit 1
 ibmcloud plugin install container-service -f
 
 ibmcloud ks cluster config --admin -c ${CLUSTERNAME} -q || exit 1
+
+ibmcloud ks cluster config --admin -c ${CLUSTERNAME} --output yaml > kubeconfig.yaml || exit 1
