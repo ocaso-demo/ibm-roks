@@ -88,7 +88,7 @@ data "ibm_resource_instance" "cos_instance" {
 resource "null_resource" "test" {
 
   provisioner "local-exec" {
-    command = ".scripts/test.sh"
+    command = "scripts/test.sh"
     environment = {
       HOME = "${abspath(path.module)}/home"
     }
