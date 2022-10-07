@@ -1,13 +1,13 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: new-roks-cluster-pipeline
-  namespace: CLUSTER_NAME_PLACEHOLDER
+  name: custom-apic-config-pipeline
+  namespace: tools
 subjects:
   - kind: ServiceAccount
     name: pipeline
-    namespace: cicd
+    namespace: ci
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: new-roks-cluster-pipeline
+  name: custom-apic-config-pipeline

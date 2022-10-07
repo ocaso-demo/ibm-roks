@@ -64,19 +64,19 @@ spec:
         git clone $(params.git-new-roks-url) $(params.source-dir)
         cd $(params.source-dir)
         git checkout $(params.git-new-roks-branch)
-    # - name: create-roks-cluster
-    #   image: $(params.terraform-image)
-    #   workingDir: $(params.source-dir)
-    #   script: |
-    #     set +x
-    #     echo "******************************"
-    #     echo "** Step create-roks-cluster **"
-    #     echo "******************************"
-    #     if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-    #     # Replace the value of the IBM API Key
-    #     sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
-    #     terraform init
-    #     terraform apply -auto-approve
+    - name: create-roks-cluster
+      image: $(params.terraform-image)
+      workingDir: $(params.source-dir)
+      script: |
+        set +x
+        echo "******************************"
+        echo "** Step create-roks-cluster **"
+        echo "******************************"
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
+        # Replace the value of the IBM API Key
+        sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
+        terraform init
+        terraform apply -auto-approve
     - name: import-cluster
       image: $(params.oc-cli-image)
       workingDir: $(params.source-dir)
@@ -87,8 +87,7 @@ spec:
         echo "*************************"
         if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
         # Replace ROKS cluster name
-        # export CLUSTER_NAME=`terraform output cluster_name`
-        export CLUSTER_NAME="ocaso-demo-gub436bh"
+        export CLUSTER_NAME=`terraform output cluster_name`
         ### Install IBM Cloud CLI ##############################
         curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
         ########################################################
@@ -96,8 +95,6 @@ spec:
         ibmcloud plugin install container-service -f
         ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} --output yaml > kubeconfig.yaml || exit 1
         ### Set up config files
-        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" roles/role.yaml
-        sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" roles/rolebinding.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/klusterlet.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/secret.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/project.yaml
@@ -106,22 +103,28 @@ spec:
         sed -i -r 's/^/    /g' kubeconfig.yaml
         cat kubeconfig.yaml >> import/secret.yaml
         ### Import the cluster
-        oc apply -f roles/role.yaml
-        oc apply -f roles/rolebinding.yaml
         oc apply -f import/project.yaml
         sleep 10
         oc apply -f import/secret.yaml
         oc apply -f import/klusterlet.yaml
         oc apply -f import/managed-cluster.yaml
+    - name: install-argocd
+      image: $(params.oc-cli-image)
+      workingDir: $(params.source-dir)
+      script: |
+        set +x
         echo "*************************"
         echo "** Step Install-ArgoCD **"
         echo "*************************"
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
+        export CLUSTER_NAME=`terraform output cluster_name`
+        ### Install IBM Cloud CLI ##############################
+        curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+        ########################################################
+        ibmcloud login --apikey ${IBM_APIKEY} -r eu-de -q || exit 1
+        ibmcloud plugin install container-service -f
         ### Configure Kubeconfig to point to target cluster
         ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} -q || exit 1
-        oc new-project testing
         ### Bootstrap ArgoCD ###########
-        #./scripts/bootstrap.sh || exit 1
+        ./scripts/bootstrap.sh || exit 1
         ################################
-        ### Get ArgoCD Info #################
-        #./scripts/get-argo-info.sh || exit 1
-        #####################################
