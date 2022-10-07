@@ -84,55 +84,55 @@ data "ibm_resource_instance" "cos_instance" {
 # }
 
 
-# Run boostrap.sh
-resource "null_resource" "test" {
-
-  provisioner "local-exec" {
-    command = "scripts/test.sh"
-    environment = {
-      HOME = "${abspath(path.module)}/home"
-    }
-  }
-}
-
-# # Download kubeconfig for the cluster into home dir
-# resource "null_resource" "kubeconfig" {
+# resource "null_resource" "test" {
 
 #   provisioner "local-exec" {
-#     command = "./scripts/get-kubeconfig.sh || true"
-#     environment = {
-#       HOME        = "${abspath(path.module)}/home"
-#       API_KEY     = local.API_KEY
-#       CLUSTERNAME = resource.ibm_container_vpc_cluster.cluster.name
-#     }
-#   }
-
-#   depends_on = [
-#     ibm_container_vpc_cluster.cluster
-#   ]
-# }
-
-# # Run boostrap.sh
-# resource "null_resource" "argo_bootstrap" {
-
-#   provisioner "local-exec" {
-#     command = "chmod +x ./scripts/bootstrap.sh && ./scripts/bootstrap.sh || true"
+#     command = "scripts/test.sh"
 #     environment = {
 #       HOME = "${abspath(path.module)}/home"
 #     }
 #   }
-
-#   depends_on = [
-#     null_resource.kubeconfig
-#   ]
 # }
 
-# data "external" "argo_info" {
-#   program = ["bash", "${path.module}/scripts/get-argo-info.sh"]
-#   query = {
-#     kubeconfig = "${abspath(path.module)}/home/.kube/config"
-#   }
-#   depends_on = [
-#     null_resource.argo_bootstrap
-#   ]
-# }
+# Download kubeconfig for the cluster into home dir
+resource "null_resource" "kubeconfig" {
+
+  provisioner "local-exec" {
+    command = "scripts/get-kubeconfig.sh || true"
+    environment = {
+      HOME        = "${abspath(path.module)}/home"
+      API_KEY     = local.API_KEY
+      CLUSTERNAME = "ocaso-demo-gub436bh"
+      # CLUSTERNAME = resource.ibm_container_vpc_cluster.cluster.name
+    }
+  }
+
+  depends_on = [
+    ibm_container_vpc_cluster.cluster
+  ]
+}
+
+# Run boostrap.sh
+resource "null_resource" "argo_bootstrap" {
+
+  provisioner "local-exec" {
+    command = "chmod +x scripts/bootstrap.sh && scripts/bootstrap.sh || true"
+    environment = {
+      HOME = "${abspath(path.module)}/home"
+    }
+  }
+
+  depends_on = [
+    null_resource.kubeconfig
+  ]
+}
+
+data "external" "argo_info" {
+  program = ["sh", "${path.module}/scripts/get-argo-info.sh"]
+  query = {
+    kubeconfig = "${abspath(path.module)}/home/.kube/config"
+  }
+  depends_on = [
+    null_resource.argo_bootstrap
+  ]
+}
