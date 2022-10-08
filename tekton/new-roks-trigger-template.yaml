@@ -1,0 +1,30 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: new-roks-cluster
+spec:
+  params:
+  - name: ibm-apikey
+  - name: git-new-roks-url
+    default: 'https://github.com/ocaso-demo/ibm-roks.git'
+  - name: git-new-roks-branch
+    default: "main"
+  - name: debug
+    default: "False"
+  resourcetemplates:
+  - apiVersion: tekton.dev/v1beta1
+    kind: PipelineRun
+    metadata:
+      generateName: new-roks-cluster-
+    spec:
+      pipelineRef:
+        name: new-roks-cluster
+      params:
+      - name: ibm-apikey
+        value: $(tt.params.ibm-apikey)
+      - name: git-new-roks-url
+        value: $(tt.params.git-new-roks-url)
+      - name: git-new-roks-branch
+        value: $(tt.params.git-new-roks-branch)
+      - name: debug
+        value: $(tt.params.debug)

@@ -1,0 +1,80 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: new-roks-cluster
+spec:
+  params:
+    - name: ibm-apikey
+      type: string
+      description: Your IBM API Key
+    - name: git-new-roks-url
+      type: string
+      default: 'https://github.com/ocaso-demo/ibm-roks.git'
+      description: GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+    - name: git-new-roks-branch
+      type: string
+      default: main
+      description: Github branch for the pipeline scripts
+    - name: debug
+      type: string
+      default: "True"
+      description: Debug flag
+  tasks:
+    - name: new-roks-create-cluster
+      taskRef:
+        name: new-roks-create-cluster
+      params:
+      # Your IBM API Key
+      - name: ibm-apikey
+        value: "$(params.ibm-apikey)"
+      # GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+      - name: git-new-roks-url
+        value: "$(params.git-new-roks-url)"
+      # Github branch for the pipeline scripts.
+      - name: git-new-roks-branch
+        value: "$(params.git-new-roks-branch)"
+      # Debug flag
+      - name: debug
+        value: "$(params.debug)"
+    - name: new-roks-import-cluster
+      taskRef:
+        name: new-roks-import-cluster
+      runAfter:
+        - new-roks-create-cluster
+      params:
+      # New cluster's name
+      - name: cluster-name
+        value: "$(tasks.new-roks-create-cluster.results.cluster-name)"
+      # Your IBM API Key
+      - name: ibm-apikey
+        value: "$(params.ibm-apikey)"
+      # GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+      - name: git-new-roks-url
+        value: "$(params.git-new-roks-url)"
+      # Github branch for the pipeline scripts.
+      - name: git-new-roks-branch
+        value: "$(params.git-new-roks-branch)"
+      # Debug flag
+      - name: debug
+        value: "$(params.debug)"
+    - name: new-roks-install-argocd
+      taskRef:
+        name: new-roks-install-argocd
+      runAfter:
+        - new-roks-create-cluster
+      params:
+      # New cluster's name
+      - name: cluster-name
+        value: "$(tasks.new-roks-create-cluster.results.cluster-name)"
+      # Your IBM API Key
+      - name: ibm-apikey
+        value: "$(params.ibm-apikey)"
+      # GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+      - name: git-new-roks-url
+        value: "$(params.git-new-roks-url)"
+      # Github branch for the pipeline scripts.
+      - name: git-new-roks-branch
+        value: "$(params.git-new-roks-branch)"
+      # Debug flag
+      - name: debug
+        value: "$(params.debug)"

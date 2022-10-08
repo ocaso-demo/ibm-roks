@@ -1,0 +1,83 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: new-roks-create-cluster
+  annotations:
+    description: Creates a new ROKS Cluster with the GitOps operator installed on it and imports the cluster into RHACM
+  labels:
+    version: 0.0.1
+spec:
+  description: >-
+    This task will create a new ROKS Cluster with the GitOps operator installed on it and imports the cluster into RHACM
+  params:
+    - name: ibm-apikey
+      type: string
+      description: Your IBM API Key
+    - name: git-new-roks-url
+      type: string
+      description: GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+    - name: git-new-roks-branch
+      type: string
+      default: main
+      description: Github branch for the pipeline scripts
+    - name: source-dir
+      type: string
+      default: /source
+      description: Path where an empty directory will be mounted to which will serve as the source location for all the task steps.
+    - name: terraform-image
+      type: string
+      default: hashicorp/terraform:latest
+      description: Terraform Docker image needed for executing this task.
+    - name: git-image
+      type: string
+      default: quay.io/ibmgaragecloud/alpine-git
+      description: Git Docker image needed for executing git commands.
+    - name: debug
+      type: string
+      default: "True"
+      description: Debug flag
+  volumes:
+    - name: source
+      emptyDir: {}
+  stepTemplate:
+    volumeMounts:
+      - name: source
+        mountPath: $(params.source-dir)
+    env:
+      - name: CONFIG_FILES_DIR
+        value: $(params.source-dir)/config
+      - name: IBM_APIKEY
+        value: $(params.ibm-apikey)
+  results:
+    - name: cluster-name
+  steps:
+    - name: git-clone
+      image: $(params.git-image)
+      script: |
+        echo "********************"
+        echo "** Step git-clone **"
+        echo "********************"
+        echo
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; set -x; fi
+        git clone $(params.git-new-roks-url) $(params.source-dir)
+        cd $(params.source-dir)
+        git checkout $(params.git-new-roks-branch)
+        set +x
+    - name: create-roks-cluster
+      image: $(params.terraform-image)
+      workingDir: $(params.source-dir)
+      script: |
+        echo "******************************"
+        echo "** Step create-roks-cluster **"
+        echo "******************************"
+        echo
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; set -x; fi
+        ### Replace the value of the IBM API Key
+        sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
+        ### Execute terraform
+        terraform init
+        terraform apply -auto-approve
+        ### Save the cluster name which will be used in the following steps
+        CLUSTER_NAME=`terraform output cluster_name | sed 's/"//g'`
+        echo -n "${CLUSTER_NAME}" | tee $(results.cluster-name.path)
+        set +x

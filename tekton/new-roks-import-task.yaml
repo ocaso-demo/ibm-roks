@@ -1,15 +1,18 @@
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
-  name: new-roks-cluster
+  name: new-roks-import-cluster
   annotations:
-    description: Creates a new ROKS Cluster with the GitOps operator installed on it and imports the cluster into RHACM
+    description: Imports a newly created ROKS cluster into RHACM
   labels:
     version: 0.0.1
 spec:
   description: >-
-    This task will create a new ROKS Cluster with the GitOps operator installed on it and imports the cluster into RHACM
+    Imports a newly created ROKS cluster into RHACM
   params:
+    - name: cluster-name
+      type: string
+      description: New cluster's name
     - name: ibm-apikey
       type: string
       description: Your IBM API Key
@@ -24,10 +27,6 @@ spec:
       type: string
       default: /source
       description: Path where an empty directory will be mounted to which will serve as the source location for all the task steps.
-    - name: terraform-image
-      type: string
-      default: hashicorp/terraform:latest
-      description: Terraform Docker image needed for executing this task.
     - name: oc-cli-image
       type: string
       default: quay.io/openshift/origin-cli:latest
@@ -52,55 +51,44 @@ spec:
         value: $(params.source-dir)/config
       - name: IBM_APIKEY
         value: $(params.ibm-apikey)
+      - name: CLUSTER_NAME
+        value: $(params.cluster-name)
   steps:
     - name: git-clone
       image: $(params.git-image)
       script: |
-        set +x
         echo "********************"
         echo "** Step git-clone **"
         echo "********************"
-        echo 
+        echo
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; set -x; fi
         git clone $(params.git-new-roks-url) $(params.source-dir)
         cd $(params.source-dir)
         git checkout $(params.git-new-roks-branch)
-    - name: create-roks-cluster
-      image: $(params.terraform-image)
-      workingDir: $(params.source-dir)
-      script: |
         set +x
-        echo "******************************"
-        echo "** Step create-roks-cluster **"
-        echo "******************************"
-        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-        # Replace the value of the IBM API Key
-        sed -i -r "s@API_KEY_PLACEHOLDER@$IBM_APIKEY@g" main.tf
-        terraform init
-        terraform apply -auto-approve
-        terraform output cluster_name > cluster_name.tmp
     - name: import-cluster
       image: $(params.oc-cli-image)
       workingDir: $(params.source-dir)
       script: |
-        set +x
         echo "*************************"
         echo "** Step import-cluster **"
         echo "*************************"
-        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-        # Replace ROKS cluster name
-        export CLUSTER_NAME=`cat cluster_name.tmp`
-        ### Install IBM Cloud CLI ##############################
+        echo
+        echo "Name for the cluster to be imported: ${CLUSTER_NAME}"
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; set -x; fi
+        ### Install IBM Cloud CLI
         curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
-        ########################################################
+        ### Login into the IBM Cloud account
         ibmcloud login --apikey ${IBM_APIKEY} -r eu-de -q || exit 1
         ibmcloud plugin install container-service -f
+        ### Get the Kubeconfig for the recently created cluster
         ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} --output yaml > kubeconfig.yaml || exit 1
-        ### Set up config files
+        ### Replace Cluster Name placeholders for import
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/klusterlet.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/secret.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/project.yaml
         sed -i -r "s@CLUSTER_NAME_PLACEHOLDER@$CLUSTER_NAME@g" import/managed-cluster.yaml
-        # Indent Kubeconfig
+        ### Indent Kubeconfig and merge
         sed -i -r 's/^/    /g' kubeconfig.yaml
         cat kubeconfig.yaml >> import/secret.yaml
         ### Import the cluster
@@ -109,23 +97,4 @@ spec:
         oc apply -f import/secret.yaml
         oc apply -f import/klusterlet.yaml
         oc apply -f import/managed-cluster.yaml
-    - name: install-argocd
-      image: $(params.oc-cli-image)
-      workingDir: $(params.source-dir)
-      script: |
         set +x
-        echo "*************************"
-        echo "** Step Install-ArgoCD **"
-        echo "*************************"
-        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; export DEBUG=True; fi
-        export CLUSTER_NAME=`cat cluster_name.tmp`
-        ### Install IBM Cloud CLI ##############################
-        curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
-        ########################################################
-        ibmcloud login --apikey ${IBM_APIKEY} -r eu-de -q || exit 1
-        ibmcloud plugin install container-service -f
-        ### Configure Kubeconfig to point to target cluster
-        ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} -q || exit 1
-        ### Bootstrap ArgoCD ###########
-        ./scripts/bootstrap.sh || exit 1
-        ################################

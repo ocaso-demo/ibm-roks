@@ -1,0 +1,12 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: new-roks-cluster
+spec:
+  serviceAccountName: tekton-new-roks-cluster
+  triggers:
+    - name: new-roks-cluster
+      bindings:
+      - ref: new-roks-cluster
+      template:
+        ref: new-roks-cluster

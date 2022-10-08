@@ -1,0 +1,87 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: new-roks-install-argocd
+  annotations:
+    description: Installs ArgoCD in a newly created ROKS cluster
+  labels:
+    version: 0.0.1
+spec:
+  description: >-
+    Installs ArgoCD in a newly created ROKS cluster
+  params:
+    - name: cluster-name
+      type: string
+      description: New cluster's name
+    - name: ibm-apikey
+      type: string
+      description: Your IBM API Key
+    - name: git-new-roks-url
+      type: string
+      description: GitHub url where the scripts to create a new ROKS cluster are for the pipeline to execute them.
+    - name: git-new-roks-branch
+      type: string
+      default: main
+      description: Github branch for the pipeline scripts
+    - name: source-dir
+      type: string
+      default: /source
+      description: Path where an empty directory will be mounted to which will serve as the source location for all the task steps.
+    - name: oc-cli-image
+      type: string
+      default: quay.io/openshift/origin-cli:latest
+      description: OpenShift CLI Docker image needed for executing oc commands.
+    - name: git-image
+      type: string
+      default: quay.io/ibmgaragecloud/alpine-git
+      description: Git Docker image needed for executing git commands.
+    - name: debug
+      type: string
+      default: "True"
+      description: Debug flag
+  volumes:
+    - name: source
+      emptyDir: {}
+  stepTemplate:
+    volumeMounts:
+      - name: source
+        mountPath: $(params.source-dir)
+    env:
+      - name: CONFIG_FILES_DIR
+        value: $(params.source-dir)/config
+      - name: IBM_APIKEY
+        value: $(params.ibm-apikey)
+      - name: CLUSTER_NAME
+        value: $(params.cluster-name)
+  steps:
+    - name: git-clone
+      image: $(params.git-image)
+      script: |
+        echo "********************"
+        echo "** Step git-clone **"
+        echo "********************"
+        echo
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; set -x; fi
+        git clone $(params.git-new-roks-url) $(params.source-dir)
+        cd $(params.source-dir)
+        git checkout $(params.git-new-roks-branch)
+        set +x
+    - name: install-argocd
+      image: $(params.oc-cli-image)
+      workingDir: $(params.source-dir)
+      script: |
+        echo "*************************"
+        echo "** Step Install-ArgoCD **"
+        echo "*************************"
+        echo
+        if [[ "$(params.debug)" == "True" ]]; then echo "DEBUG is enabled"; set -x; fi
+        ### Install IBM Cloud CLI
+        curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+        ### Login into the IBM Cloud account
+        ibmcloud login --apikey ${IBM_APIKEY} -r eu-de -q || exit 1
+        ibmcloud plugin install container-service -f
+        ### Configure Kubeconfig to point to target cluster
+        ibmcloud ks cluster config --admin -c ${CLUSTER_NAME} -q || exit 1
+        ### Bootstrap ArgoCD on the target cluster
+        ./scripts/bootstrap.sh || exit 1
+        set +x
