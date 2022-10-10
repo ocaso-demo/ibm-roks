@@ -13,6 +13,11 @@ provider "ibm" {
   resource_group = "RG_OpenShift"
 }
 
+variable "cluster-name" {
+  type = string
+  default = ""
+}
+
 # Random cluster name suffix
 resource "random_string" "suffix" {
   length  = 8
@@ -22,7 +27,7 @@ resource "random_string" "suffix" {
 
 locals {
   VPCNAME = "gco-vpc-cp4data-frankfurt"
-  CLUSTERNAME = "ocaso-demo-${random_string.suffix.result}"
+  CLUSTERNAME = var.cluster-name == "" ? "new-roks-cluster-${random_string.suffix.result}" : var.cluster-name
   KUBEVERSION = "4.8.49_openshift"
   NODEFLAVOR = "bx2.4x16"
   NUMNODES = 1
